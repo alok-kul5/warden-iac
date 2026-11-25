@@ -1,5 +1,5 @@
 name: warden IaC scan
-description: Scan Terraform for AWS misconfigurations and IAM privilege-escalation paths, with SARIF output.
+description: Scan Terraform for AWS misconfigurations and IAM privilege-escalation paths, with SARIF and HTML reports.
 branding:
   icon: shield
   color: orange
@@ -13,6 +13,9 @@ inputs:
   sarif-file:
     description: Where to write the SARIF report
     default: warden.sarif
+  html-file:
+    description: Where to write the HTML report
+    default: warden-report.html
 runs:
   using: composite
   steps:
@@ -24,5 +27,6 @@ runs:
     - shell: bash
       run: |
         warden scan "${{ inputs.path }}" -f sarif -o "${{ inputs.sarif-file }}" --fail-on none
+        warden scan "${{ inputs.path }}" -f html -o "${{ inputs.html-file }}" --fail-on none
         warden scan "${{ inputs.path }}" -f markdown --fail-on none >> "$GITHUB_STEP_SUMMARY"
         warden scan "${{ inputs.path }}" --fail-on "${{ inputs.fail-on }}" --no-color

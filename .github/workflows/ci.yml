@@ -40,6 +40,10 @@ jobs:
         with:
           sarif_file: warden.sarif
           category: warden-examples
+      - uses: actions/upload-artifact@v7
+        with:
+          name: warden-report
+          path: warden-report.html
 
   terragoat:
     # A real-world check: TerraGoat is a public, deliberately vulnerable
