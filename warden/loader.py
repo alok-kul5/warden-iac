@@ -11,7 +11,7 @@ import hcl2
 
 from . import hclexpr
 
-_IGNORE = re.compile(r"warden:ignore\s+([A-Z0-9_, ]+)")
+_IGNORE = re.compile(r"warden:ignore\s+([A-Z0-9_\-, ]+)")
 _HEREDOC = re.compile(r"^<<-?([A-Za-z_]+)\n(.*)\n\s*\1$", re.S)
 
 
