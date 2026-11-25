@@ -6,6 +6,7 @@ bucket's public access block, live in a separate resource) and yields messages.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Callable, Iterable
 
@@ -100,14 +101,29 @@ def s3_versioning(r, stack):
         yield "versioning is not enabled"
 
 
-@rule("WDN-S3-004", "S3 bucket policy allows any principal", "critical", ["aws_s3_bucket_policy"],
-      "A bucket policy statement with Principal \"*\" and no condition opens the bucket to everyone.",
-      "Name the principals explicitly, or add a condition such as aws:SourceVpce or aws:PrincipalOrgID.", "CWE-284")
-def s3_policy_public(r, stack):
+POLICY_ATTRS = {"aws_s3_bucket_policy": "policy", "aws_sqs_queue_policy": "policy",
+                "aws_sns_topic_policy": "policy", "aws_ecr_repository_policy": "policy",
+                "aws_elasticsearch_domain_policy": "access_policies",
+                "aws_opensearch_domain_policy": "access_policies",
+                "aws_elasticsearch_domain": "access_policies", "aws_opensearch_domain": "access_policies",
+                "aws_kms_key": "policy", "aws_secretsmanager_secret_policy": "policy"}
+
+
+@rule("WDN-POL-001", "Resource policy allows any principal", "critical", list(POLICY_ATTRS) + ["aws_lambda_permission"],
+      "A resource policy statement with Principal \"*\" and no condition opens the bucket, queue, topic, "
+      "key or domain to every AWS account and often to anonymous callers.",
+      "Name the principals explicitly, or add a condition such as aws:SourceVpce, aws:SourceArn or aws:PrincipalOrgID.",
+      "CWE-284")
+def resource_policy_public(r, stack):
+    if r.type == "aws_lambda_permission":
+        if r.get("principal") == "*" and not r.get("source_arn") and not r.get("principal_org_id"):
+            yield "lambda permission grants invoke to principal \"*\""
+        return
     from .iam import statements
-    for st in statements(r.get("policy"), stack):
+    for st in statements(r.get(POLICY_ATTRS[r.type]), stack):
         if st.effect == "Allow" and st.principal_is_anyone() and not st.conditions:
-            yield f"statement allows {', '.join(st.actions) or 'actions'} to Principal \"*\""
+            yield f"statement allows {', '.join(st.actions) or 'every action'} to Principal \"*\""
+            return
 
 
 # ---------------------------------------------------------------- network
@@ -242,14 +258,34 @@ def rds_encryption(r, stack):
         yield "storage_encrypted is not true"
 
 
+AWS_KEY_ID = re.compile(r"\b(AKIA|ASIA)[0-9A-Z]{16}\b")
+AWS_SECRET = re.compile(r"aws_secret_access_key\s*[=:]\s*['\"]?[A-Za-z0-9/+]{40}", re.I)
+
+
+def _walk(val, path=""):
+    if isinstance(val, dict):
+        for k, v in val.items():
+            yield from _walk(v, f"{path}.{k}" if path else str(k))
+    elif isinstance(val, list):
+        for v in val:
+            yield from _walk(v, path)
+    else:
+        yield path, val
+
+
 @rule("WDN-SECRET-001", "Hardcoded secret in Terraform", "high", ["*"],
       "Literal passwords and keys end up in git history and in plain text in the state file.",
-      "Use manage_master_user_password, a random_password resource, or a variable marked sensitive.", "CWE-798")
+      "Use manage_master_user_password, a random_password resource, Secrets Manager, or a sensitive variable.",
+      "CWE-798")
 def hardcoded_secret(r, stack):
-    for key, val in r.body.items():
-        k = key.lower()
-        if any(k == s or k.endswith("_" + s) for s in SECRET_KEYS) and is_literal(val):
-            yield f"{key} is set to a literal value"
+    for path, val in _walk(r.body):
+        if not isinstance(val, str):
+            continue
+        key = path.rsplit(".", 1)[-1].lower()
+        if any(key == s or key.endswith("_" + s) for s in SECRET_KEYS) and is_literal(val):
+            yield f"{path} is set to a literal value"
+        elif AWS_KEY_ID.search(val) or AWS_SECRET.search(val):
+            yield f"{path} contains an AWS access key"
 
 
 # ---------------------------------------------------------------- logging and keys
@@ -291,9 +327,11 @@ def ecr_scan(r, stack):
 def run(stack: Stack) -> list[Finding]:
     out: list[Finding] = []
     for r in stack.resources:
-        if r.kind != "resource":
+        if r.kind == "data":
             continue
         for rid, (meta, types, check) in RULES.items():
+            if r.kind == "provider" and types != ("*",):
+                continue
             if rid in r.ignored or (types != ("*",) and r.type not in types):
                 continue
             for msg in check(r, stack):

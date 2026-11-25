@@ -23,7 +23,7 @@ resource "aws_s3_bucket_public_access_block" "logs" {
 }
 
 resource "aws_s3_bucket_policy" "uploads" {
-  bucket = aws_s3_bucket.uploads.id # expect: WDN-S3-004
+  bucket = aws_s3_bucket.uploads.id # expect: WDN-POL-001
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

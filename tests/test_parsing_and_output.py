@@ -51,3 +51,67 @@ def test_exit_codes(tmp_path):
 
 def test_mermaid_graph_mentions_admin():
     assert '(["admin"])' in report.mermaid(scan(EXAMPLES / "iam-escalation"))
+
+
+def test_secrets_in_nested_blocks_and_providers(tmp_path):
+    key_id = "AKIA" + "Z" * 16  # built at runtime so no key-shaped string sits in the repo
+    (tmp_path / "main.tf").write_text(f'''
+provider "aws" {{
+  region     = "us-east-1"
+  secret_key = "not-a-real-secret"
+}}
+
+resource "aws_lambda_function" "f" {{
+  function_name = "f"
+  role          = "arn:aws:iam::123456789012:role/f"
+  environment {{
+    variables = {{
+      DB_PASSWORD = "hunter2"
+    }}
+  }}
+}}
+
+resource "aws_instance" "i" {{
+  ami       = "ami-1"
+  user_data = "export AWS_ACCESS_KEY_ID={key_id}"
+  metadata_options {{
+    http_tokens = "required"
+  }}
+  root_block_device {{
+    encrypted = true
+  }}
+}}
+''', encoding="utf-8")
+    hits = {(f.resource, f.message) for f in scan(tmp_path).findings if f.rule.id == "WDN-SECRET-001"}
+    assert ("provider.aws", "secret_key is set to a literal value") in hits
+    assert ("aws_lambda_function.f", "environment.variables.DB_PASSWORD is set to a literal value") in hits
+    assert ("aws_instance.i", "user_data contains an AWS access key") in hits
+
+
+def test_variable_references_are_not_secrets(tmp_path):
+    (tmp_path / "main.tf").write_text('''
+resource "aws_db_instance" "d" {
+  identifier          = "d"
+  password            = var.db_password
+  storage_encrypted   = true
+}
+''', encoding="utf-8")
+    assert not [f for f in scan(tmp_path).findings if f.rule.id == "WDN-SECRET-001"]
+
+
+def test_public_queue_policy_and_lambda_permission(tmp_path):
+    (tmp_path / "main.tf").write_text('''
+resource "aws_sqs_queue_policy" "q" {
+  queue_url = "https://sqs/q"
+  policy = jsonencode({ Statement = [{ Effect = "Allow", Principal = "*", Action = "sqs:SendMessage", Resource = "*" }] })
+}
+
+resource "aws_lambda_permission" "p" {
+  statement_id  = "any"
+  action        = "lambda:InvokeFunction"
+  function_name = "f"
+  principal     = "*"
+}
+''', encoding="utf-8")
+    hits = {f.resource for f in scan(tmp_path).findings if f.rule.id == "WDN-POL-001"}
+    assert hits == {"aws_sqs_queue_policy.q", "aws_lambda_permission.p"}
