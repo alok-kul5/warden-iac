@@ -57,7 +57,7 @@ def related(label_resource: str, failed_resource: str) -> bool:
 
 
 def main() -> int:
-    rows, privesc, version = [], [], ""
+    rows, privesc, version, clean = [], [], "", {}
     for name in STACKS:
         stack = ROOT / "examples" / name
         want = labels(stack)
@@ -68,6 +68,9 @@ def main() -> int:
         failed, c_time, version = checkov(stack)
         c_res = {c["resource"] for c in failed}
         w_hit = len(want & got)
+        if name == "hardened":
+            for c in failed:
+                clean.setdefault((c["check_id"], c.get("check_name", "")), []).append(c["resource"])
         c_hit = sum(1 for _, r in want if any(related(r, x) for x in c_res))
         rows.append((name, len(want), w_hit, len(got - want), c_hit, len(failed), len(c_res), w_time, c_time))
         for rule, r in sorted(want):
@@ -86,6 +89,9 @@ def main() -> int:
            "failed on that principal or its same-named policy.", "",
            "| Principal | checkov checks on it |", "|---|---|"]
     md += [f"| `{r}` | {', '.join(ids) if ids else 'none'} |" for r, ids in privesc]
+    md += ["", "## What checkov flags on the hardened stack", "",
+           "| Check | Name | Resources |", "|---|---|---|"]
+    md += [f"| {cid} | {cname} | {', '.join(sorted(set(rs)))} |" for (cid, cname), rs in sorted(clean.items())]
     (ROOT / "bench" / "RESULTS.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     print("\n".join(md))
     return 0
