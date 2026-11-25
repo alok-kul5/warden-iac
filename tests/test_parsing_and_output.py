@@ -125,3 +125,11 @@ def test_each_directory_is_its_own_module():
     assert alone <= together
     assert len(scan(EXAMPLES).findings) == sum(len(scan(EXAMPLES / d).findings)
                                                for d in ("startup-stack", "iam-escalation", "hardened"))
+
+
+def test_terraform_plan_json():
+    res = scan(Path(__file__).parent / "fixtures" / "plan.json")
+    got = {(f.rule.id, f.resource) for f in res.findings}
+    assert ("WDN-IAM-001", "aws_iam_user.dev") in got
+    assert ("WDN-NET-002", "aws_security_group.this[0]") in got
+    assert ("WDN-EC2-001", 'aws_instance.app["blue"]') in got

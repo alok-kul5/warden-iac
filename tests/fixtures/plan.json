@@ -1,0 +1,59 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_user.dev",
+          "mode": "managed",
+          "type": "aws_iam_user",
+          "name": "dev",
+          "values": { "name": "dev", "path": "/" }
+        },
+        {
+          "address": "aws_iam_user_policy.dev",
+          "mode": "managed",
+          "type": "aws_iam_user_policy",
+          "name": "dev",
+          "values": {
+            "user": "dev",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"iam:AttachUserPolicy\",\"Resource\":\"*\"}]}"
+          }
+        }
+      ],
+      "child_modules": [
+        {
+          "address": "module.web",
+          "resources": [
+            {
+              "address": "module.web.aws_security_group.this[0]",
+              "mode": "managed",
+              "type": "aws_security_group",
+              "name": "this",
+              "index": 0,
+              "values": {
+                "name": "web",
+                "ingress": [
+                  { "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "ipv6_cidr_blocks": [] }
+                ]
+              }
+            },
+            {
+              "address": "module.web.aws_instance.app[\"blue\"]",
+              "mode": "managed",
+              "type": "aws_instance",
+              "name": "app",
+              "index": "blue",
+              "values": {
+                "ami": "ami-1",
+                "metadata_options": [{ "http_tokens": "optional" }],
+                "root_block_device": [{ "encrypted": true }]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

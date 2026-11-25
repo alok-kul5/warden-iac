@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("scan", help="scan a Terraform directory or file")
-    s.add_argument("path")
+    s.add_argument("path", help="Terraform directory, .tf file, or `terraform show -json` output")
     s.add_argument("-f", "--format", choices=FORMATS, default="text")
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
     s.add_argument("--fail-on", choices=SEVERITIES + ["none"], default="high",

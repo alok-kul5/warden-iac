@@ -128,6 +128,8 @@ def load_file(path: Path, root: Path | None = None) -> list[Resource]:
 def load(target: str | Path) -> list[Resource]:
     """Load every .tf file under a directory (or a single file)."""
     target = Path(target)
+    if target.is_file() and target.suffix == ".json":
+        return load_plan(target)
     if target.is_file():
         return load_file(target, target.parent)
     resources: list[Resource] = []
@@ -136,3 +138,41 @@ def load(target: str | Path) -> list[Resource]:
             continue
         resources.extend(load_file(path, target))
     return resources
+
+
+def load_plan(path: Path) -> list[Resource]:
+    """Load `terraform show -json` output (a plan or a state).
+
+    Plans have variables, modules and count/for_each already expanded, so they
+    see things the raw .tf files can't. Locations point at the plan file.
+    """
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    root = (doc.get("planned_values") or doc.get("values") or {}).get("root_module", {})
+    name = path.name
+    out: list[Resource] = []
+
+    def walk(module: dict):
+        for r in module.get("resources", []):
+            kind = "data" if r.get("mode") == "data" else "resource"
+            rname = r["name"] if r.get("index") is None else f'{r["name"]}[{json.dumps(r["index"])}]'
+            res = Resource(kind, r["type"], rname, _plan_values(r.get("values") or {}), name, 1)
+            out.append(res)
+        for child in module.get("child_modules", []):
+            walk(child)
+
+    walk(root)
+    return out
+
+
+def _plan_values(val):
+    """Plan values are already plain JSON; policy documents arrive as JSON strings."""
+    if isinstance(val, dict):
+        return {k: _plan_values(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [_plan_values(v) for v in val]
+    if isinstance(val, str) and val.lstrip().startswith("{") and '"Statement"' in val:
+        try:
+            return json.loads(val)
+        except ValueError:
+            return val
+    return val
