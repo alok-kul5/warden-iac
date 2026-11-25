@@ -133,3 +133,14 @@ def test_terraform_plan_json():
     assert ("WDN-IAM-001", "aws_iam_user.dev") in got
     assert ("WDN-NET-002", "aws_security_group.this[0]") in got
     assert ("WDN-EC2-001", 'aws_instance.app["blue"]') in got
+
+
+def test_html_report_embeds_data_safely():
+    from warden import html_report
+    html = html_report.render(scan(EXAMPLES / "iam-escalation"))
+    assert "/*__DATA__*/null" not in html and "\"grade\"" in html
+    blob = html.split("const D = ", 1)[1].split(";\n", 1)[0]
+    assert "</" not in blob  # cannot close the script tag early
+    data = json.loads(blob.replace("<\\/", "</"))
+    assert len([f for f in data["findings"] if f.get("hops")]) == 6
+    assert any(e["onPath"] for e in data["graph"]["edges"])

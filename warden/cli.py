@@ -6,11 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, report
+from . import __version__, html_report, report
 from .findings import SEVERITIES, at_least
 from .scanner import all_rules, scan
 
-FORMATS = {"text": None, "json": report.as_json, "sarif": report.sarif,
+FORMATS = {"text": None, "json": report.as_json, "sarif": report.sarif, "html": html_report.render,
            "markdown": report.markdown, "mermaid": report.mermaid}
 
 
