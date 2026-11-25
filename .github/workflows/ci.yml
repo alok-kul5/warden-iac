@@ -53,8 +53,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]" checkov
-      - run: python bench/compare.py
+      - run: pip install -e ".[dev]"
+      # checkov ships a fork of python-hcl2 under the same module name, so it gets its own venv
+      - run: python -m venv /tmp/ckv && /tmp/ckv/bin/pip install -q checkov
+      - run: CHECKOV=/tmp/ckv/bin/checkov python bench/compare.py
       - run: cat bench/RESULTS.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:

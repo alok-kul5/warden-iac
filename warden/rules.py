@@ -42,7 +42,7 @@ def refers_to(value, target: Resource) -> bool:
         return False
     if f"{target.type}.{target.name}." in value or value.endswith(f"{target.type}.{target.name}}}"):
         return True
-    names = {target.get("bucket"), target.get("name"), target.get("identifier")} - {None}
+    names = {v for v in (target.get("bucket"), target.get("name"), target.get("identifier")) if isinstance(v, str)}
     return value in names
 
 

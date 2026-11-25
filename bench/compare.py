@@ -1,7 +1,7 @@
 """Compare warden with checkov on the labelled example stacks.
 
-    pip install checkov
-    python bench/compare.py            # writes bench/RESULTS.md
+    pip install checkov        # ideally in its own venv: it ships its own hcl2 module
+    CHECKOV=path/to/checkov python bench/compare.py            # writes bench/RESULTS.md
 
 Each example marks the resources that should be flagged with `# expect: RULE`.
 For warden a label counts as caught only when the same rule fires on the same
@@ -13,6 +13,7 @@ the same name (the fixtures name a user's policy after the user).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,7 @@ IAM_TYPES = ("aws_iam_user_policy", "aws_iam_role_policy", "aws_iam_group_policy
 
 
 def checkov(stack: Path) -> tuple[list[dict], float, str]:
-    exe = shutil.which("checkov")
+    exe = os.environ.get("CHECKOV") or shutil.which("checkov")
     if not exe:
         sys.exit("checkov is not on PATH: pip install checkov")
     t = time.perf_counter()
