@@ -27,6 +27,8 @@ class Resource:
 
     @property
     def address(self) -> str:
+        if self.kind == "provider":
+            return f"provider.{self.type}"
         base = f"{self.type}.{self.name}"
         return base if self.kind == "resource" else f"data.{base}"
 
@@ -73,7 +75,10 @@ def normalize(val):
 
 def _locate(text: str, kind: str, rtype: str, name: str) -> tuple[int, int]:
     """Return (start_line, end_line) of a block, 1-based, by scanning the source."""
-    pat = re.compile(rf'^\s*{kind}\s+"{re.escape(rtype)}"\s+"{re.escape(name)}"', re.M)
+    if kind == "provider":
+        pat = re.compile(rf'^\s*provider\s+"?{re.escape(rtype)}"?\s*\{{', re.M)
+    else:
+        pat = re.compile(rf'^\s*{kind}\s+"?{re.escape(rtype)}"?\s+"?{re.escape(name)}"?', re.M)
     m = pat.search(text)
     if not m:
         return 1, 1
@@ -112,6 +117,11 @@ def load_file(path: Path, root: Path | None = None) -> list[Resource]:
                         if m:
                             ignored |= {x.strip() for x in m.group(1).replace(",", " ").split() if x.strip()}
                     out.append(Resource(kind, rtype, name, normalize(body), rel, start, ignored))
+    for entry in doc.get("provider", []):
+        for ptype, body in entry.items():
+            ptype = _unquote(ptype)
+            start, _ = _locate(text, "provider", ptype, "")
+            out.append(Resource("provider", ptype, "default", normalize(body), rel, start))
     return out
 
 
