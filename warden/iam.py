@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import fnmatch
 import re
-from collections import deque
 from dataclasses import dataclass, field
+
+import networkx as nx
 
 from .findings import Finding, Rule
 from .loader import Resource
@@ -367,35 +368,40 @@ class IAMGraph:
                             yield q.key, "UpdateFunctionCode", f"replace the code of {fn.address}, which runs as {q.key}"
                             break
 
-    def paths(self, max_depth: int = 5) -> list[tuple[Principal, list[tuple[str, str, str]]]]:
-        """Shortest escalation path from every non-admin user or role to admin."""
-        admins = {k for k, p in self.principals.items() if p.kind != "group" and self.is_admin(p)}
-        # a group whose members become admin counts as admin
-        admin_groups = {k for k, p in self.principals.items() if p.kind == "group" and
-                        any(st.effect == "Allow" and "*" in st.actions and "*" in st.resources for st in p.statements)}
-        found = []
-        for start in self.principals.values():
-            if start.kind == "group" or start.key in admins:
+    def build_graph(self) -> nx.DiGraph:
+        """Directed graph: principals are nodes, escalation techniques are edges,
+        and every principal that already is admin points at the ADMIN sink."""
+        g = nx.DiGraph()
+        g.add_node(ADMIN, kind="admin", name="admin")
+        for key, p in self.principals.items():
+            g.add_node(key, kind=p.kind, name=p.name, admin=False)
+        for key, p in self.principals.items():
+            full = (p.kind != "group" and self.is_admin(p)) or (p.kind == "group" and any(
+                st.effect == "Allow" and "*" in st.actions and "*" in st.resources for st in p.statements))
+            if full:
+                g.nodes[key]["admin"] = True
+                g.add_edge(key, ADMIN, technique="is admin", detail=f"{key} already has full admin rights")
+        for key, p in self.principals.items():
+            if g.nodes[key]["admin"]:
                 continue
-            seen = {start.key}
-            queue = deque([(start.key, [])])
-            while queue:
-                node, path = queue.popleft()
-                if len(path) >= max_depth:
-                    continue
-                p = self.principals[node]
-                hit = None
-                for target, tech, detail in self.edges(p):
-                    step = path + [(node, tech, detail, target)]
-                    if target == ADMIN or target in admins or target in admin_groups:
-                        hit = step
-                        break
-                    if target not in seen:
-                        seen.add(target)
-                        queue.append((target, step))
-                if hit:
-                    found.append((start, hit))
-                    break
+            for target, tech, detail in self.edges(p):
+                if not g.has_edge(key, target):      # keep the first (cheapest) technique per pair
+                    g.add_edge(key, target, technique=tech, detail=detail)
+        return g
+
+    def paths(self, max_depth: int = 5) -> list[tuple[Principal, list[tuple[str, str, str, str]]]]:
+        """Shortest escalation path from every non-admin user or role to admin."""
+        g = self.graph = self.build_graph()
+        found = []
+        for key, p in self.principals.items():
+            if p.kind == "group" or g.nodes[key]["admin"] or not nx.has_path(g, key, ADMIN):
+                continue
+            nodes = nx.shortest_path(g, key, ADMIN)
+            steps = [(a, g.edges[a, b]["technique"], g.edges[a, b]["detail"], b) for a, b in zip(nodes, nodes[1:])]
+            if len(steps) > 1 and steps[-1][1] == "is admin":
+                steps = steps[:-1]            # the hop into an admin principal is the last real step
+            if len(steps) <= max_depth:
+                found.append((p, steps))
         return found
 
 
