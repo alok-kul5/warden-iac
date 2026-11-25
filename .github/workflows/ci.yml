@@ -45,6 +45,22 @@ jobs:
           name: warden-report
           path: warden-report.html
 
+  compare:
+    # warden vs checkov on the labelled examples; see bench/RESULTS.md
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e . checkov
+      - run: python bench/compare.py
+      - run: cat bench/RESULTS.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: comparison
+          path: bench/RESULTS.md
+
   terragoat:
     # A real-world check: TerraGoat is a public, deliberately vulnerable
     # Terraform project. Pinned so the numbers in the README stay reproducible.
