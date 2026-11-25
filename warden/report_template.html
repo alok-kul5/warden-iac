@@ -130,6 +130,8 @@ footer{border-top:1px solid var(--line);color:var(--dim);font:500 12px var(--mon
 }
 @media (max-width:560px){.wrap{padding:0 16px}input[type=search]{width:100%}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.row{opacity:1;transform:none}}
+.still *{animation:none!important;transition:none!important}.still .row{opacity:1;transform:none}.still .edge.draw{stroke-dashoffset:0}
+@media print{.still .row,.row{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -179,6 +181,8 @@ footer{border-top:1px solid var(--line);color:var(--dim);font:500 12px var(--mon
 
 <script>
 const D = /*__DATA__*/null;
+const STILL = location.hash === "#still" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (STILL) document.documentElement.classList.add("still");
 const C = {critical:"var(--crit)",high:"var(--high)",medium:"var(--med)",low:"var(--low)"};
 const $ = s => document.querySelector(s);
 const el = (t, a = {}, html = "") => { const e = document.createElement(t); for (const k in a) e.setAttribute(k, a[k]); e.innerHTML = html; return e; };
@@ -200,6 +204,7 @@ requestAnimationFrame(() => { $("#arc").style.strokeDashoffset = 326.7 * (1 - D.
 count($("#score"), D.score);
 
 function count(node, to, ms = 1300) {
+  if (STILL) { node.textContent = to; return; }
   const t0 = performance.now();
   const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); node.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
