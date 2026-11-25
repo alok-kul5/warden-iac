@@ -66,6 +66,7 @@ resource "aws_cloudtrail" "main" {
   s3_bucket_name             = aws_s3_bucket.uploads.id
   is_multi_region_trail      = true
   enable_log_file_validation = true
+  kms_key_id                 = aws_kms_key.app.arn
 }
 
 resource "aws_kms_key" "app" {

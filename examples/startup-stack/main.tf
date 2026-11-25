@@ -2,7 +2,7 @@
 # show up in real breach reports. "expect:" comments label each one.
 
 resource "aws_s3_bucket" "uploads" {
-  bucket = "acme-user-uploads" # expect: WDN-S3-002, WDN-S3-003
+  bucket = "acme-user-uploads" # expect: WDN-S3-002, WDN-S3-003, WDN-S3-004
 }
 
 resource "aws_s3_bucket_acl" "uploads" {
@@ -11,7 +11,7 @@ resource "aws_s3_bucket_acl" "uploads" {
 }
 
 resource "aws_s3_bucket" "logs" {
-  bucket = "acme-access-logs" # expect: WDN-S3-003
+  bucket = "acme-access-logs" # expect: WDN-S3-003, WDN-S3-004
 }
 
 resource "aws_s3_bucket_public_access_block" "logs" {
@@ -89,7 +89,7 @@ resource "aws_db_instance" "main" {
 }
 
 resource "aws_cloudtrail" "main" {
-  name           = "acme-trail" # expect: WDN-LOG-001, WDN-LOG-002
+  name           = "acme-trail" # expect: WDN-LOG-001, WDN-LOG-002, WDN-LOG-003
   s3_bucket_name = aws_s3_bucket.logs.id
 }
 
@@ -130,7 +130,7 @@ resource "aws_iam_policy" "deploy" {
   })
 }
 
-resource "aws_iam_user_policy_attachment" "github_actions" {
+resource "aws_iam_user_policy_attachment" "github_actions" { # expect: WDN-IAM-006
   user       = aws_iam_user.github_actions.name
   policy_arn = aws_iam_policy.deploy.arn
 }

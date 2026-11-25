@@ -12,7 +12,7 @@ from warden.scanner import scan
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 EXPECT = re.compile(r"#\s*expect:\s*([A-Z0-9\-, ]+)")
-BLOCK = re.compile(r'^(resource|data)\s+"([^"]+)"\s+"([^"]+)"', re.M)
+BLOCK = re.compile(r'^(resource|data|provider)\s+"([^"]+)"(?:\s+"([^"]+)")?', re.M)
 
 
 def labels(stack: Path) -> set[tuple[str, str]]:
@@ -22,12 +22,12 @@ def labels(stack: Path) -> set[tuple[str, str]]:
         lines = text.splitlines()
         for m in BLOCK.finditer(text):
             kind, rtype, name = m.groups()
-            start, end = _locate(text, kind, rtype, name)
+            start, end = _locate(text, kind, rtype, name or "")
             for ln in lines[start - 1:end]:
                 hit = EXPECT.search(ln)
                 if hit:
                     for rule in hit.group(1).replace(",", " ").split():
-                        out.add((rule, f"{rtype}.{name}"))
+                        out.add((rule, f"provider.{rtype}" if kind == "provider" else f"{rtype}.{name}"))
     return out
 
 
@@ -42,3 +42,10 @@ def test_scan_matches_labels(stack):
 
 def test_hardened_is_clean():
     assert scan(EXAMPLES / "hardened").findings == []
+
+
+def test_every_rule_has_a_labelled_positive():
+    from warden.scanner import all_rules
+    labelled = {rule for d in EXAMPLES.iterdir() if d.is_dir() for rule, _ in labels(d)}
+    missing = {r.id for r in all_rules()} - labelled
+    assert not missing, missing

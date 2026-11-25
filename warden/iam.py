@@ -408,7 +408,7 @@ WILDCARD_RULE = Rule(
     "WDN-IAM-002", "IAM policy grants every action on every resource", "high",
     "Action \"*\" on Resource \"*\" is full admin. Grant it to a break-glass role at most.",
     "Replace the wildcard with the actions the workload calls; IAM Access Analyzer can generate them from CloudTrail.",
-    "CWE-250")
+    "CWE-250", "1.16")
 TRUST_RULE = Rule(
     "WDN-IAM-003", "Role can be assumed by any AWS account", "critical",
     "A trust policy with Principal \"*\" and no condition lets anyone with an AWS account assume the role.",
@@ -416,7 +416,7 @@ TRUST_RULE = Rule(
 USER_KEY_RULE = Rule(
     "WDN-IAM-004", "Long-lived IAM access key", "medium",
     "Access keys never expire on their own and are the most common way AWS accounts get breached.",
-    "Use IAM roles, SSO, or OIDC federation for CI instead of user access keys.", "CWE-798")
+    "Use IAM roles, SSO, or OIDC federation for CI instead of user access keys.", "CWE-798", "1.14")
 
 
 def _display(v) -> str:

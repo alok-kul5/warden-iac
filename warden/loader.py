@@ -83,7 +83,7 @@ def _locate(text: str, kind: str, rtype: str, name: str) -> tuple[int, int]:
     if not m:
         return 1, 1
     start = text.count("\n", 0, m.start()) + 1
-    depth, i, seen = 0, m.end(), False
+    depth, i, seen = 0, m.end() - (1 if kind == "provider" else 0), False
     while i < len(text):
         c = text[i]
         if c == "{":

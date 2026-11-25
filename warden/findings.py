@@ -15,6 +15,7 @@ class Rule:
     description: str
     fix: str
     cwe: str = ""
+    cis: str = ""   # CIS AWS Foundations Benchmark v3.0.0 control, if one exists
 
 
 @dataclass

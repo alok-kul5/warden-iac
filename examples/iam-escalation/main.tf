@@ -24,7 +24,7 @@ resource "aws_iam_user" "ci_deployer" {
   name = "ci-deployer" # expect: WDN-IAM-001
 }
 
-resource "aws_iam_user_policy" "ci_deployer" {
+resource "aws_iam_user_policy" "ci_deployer" { # expect: WDN-IAM-006
   user = aws_iam_user.ci_deployer.name
   policy = jsonencode({
     Version = "2012-10-17"
@@ -51,7 +51,7 @@ resource "aws_iam_policy" "analyst" {
   })
 }
 
-resource "aws_iam_user_policy_attachment" "analyst" {
+resource "aws_iam_user_policy_attachment" "analyst" { # expect: WDN-IAM-006
   user       = aws_iam_user.analyst.name
   policy_arn = aws_iam_policy.analyst.arn
 }
@@ -61,7 +61,7 @@ resource "aws_iam_user" "ops_lead" {
   name = "ops-lead"
 }
 
-resource "aws_iam_user_policy_attachment" "ops_lead" {
+resource "aws_iam_user_policy_attachment" "ops_lead" { # expect: WDN-IAM-006
   user       = aws_iam_user.ops_lead.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
@@ -77,7 +77,7 @@ data "aws_iam_policy_document" "helpdesk" {
   }
 }
 
-resource "aws_iam_user_policy" "helpdesk" {
+resource "aws_iam_user_policy" "helpdesk" { # expect: WDN-IAM-006
   user   = aws_iam_user.helpdesk.name
   policy = data.aws_iam_policy_document.helpdesk.json
 }
@@ -97,7 +97,7 @@ resource "aws_iam_user" "intern" {
   name = "intern" # expect: WDN-IAM-001
 }
 
-resource "aws_iam_user_policy" "intern" {
+resource "aws_iam_user_policy" "intern" { # expect: WDN-IAM-006
   user = aws_iam_user.intern.name
   policy = jsonencode({
     Version   = "2012-10-17"
@@ -151,7 +151,7 @@ resource "aws_iam_user" "data_eng" {
   name = "data-eng" # expect: WDN-IAM-001
 }
 
-resource "aws_iam_user_policy" "data_eng" {
+resource "aws_iam_user_policy" "data_eng" { # expect: WDN-IAM-006
   user = aws_iam_user.data_eng.name
   policy = jsonencode({
     Version   = "2012-10-17"
@@ -179,7 +179,7 @@ resource "aws_iam_user" "reporting" {
   name = "reporting"
 }
 
-resource "aws_iam_user_policy" "reporting" {
+resource "aws_iam_user_policy" "reporting" { # expect: WDN-IAM-006
   user = aws_iam_user.reporting.name
   policy = jsonencode({
     Version = "2012-10-17"
@@ -189,4 +189,9 @@ resource "aws_iam_user_policy" "reporting" {
       { Effect = "Allow", Action = ["cloudwatch:GetMetricData"], Resource = "*" },
     ]
   })
+}
+
+# An account with IAM set up and nothing else: no trail, no Config, no analyzer.
+provider "aws" {
+  region = "us-east-1" # expect: WDN-EC2-003, WDN-LOG-004, WDN-LOG-005, WDN-IAM-005, WDN-IAM-007
 }
