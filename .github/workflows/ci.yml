@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  scan-examples:
+    # Scans the deliberately vulnerable examples and uploads SARIF, so the
+    # findings show up in this repo's Security tab like they would in yours.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          path: examples
+          fail-on: none
+          sarif-file: warden.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: warden.sarif
+          category: warden-examples
+
+  terragoat:
+    # A real-world check: TerraGoat is a public, deliberately vulnerable
+    # Terraform project. Pinned so the numbers in the README stay reproducible.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: |
+          git clone -q https://github.com/bridgecrewio/terragoat.git /tmp/terragoat
+          git -C /tmp/terragoat checkout -q 729f8da62c6a85ce4af5ad3d123de97776d954c4
+      - run: warden scan /tmp/terragoat/terraform/aws -f markdown --fail-on none >> "$GITHUB_STEP_SUMMARY"
+      - name: Expect the known issues to be found
+        run: |
+          warden scan /tmp/terragoat/terraform/aws -f json --fail-on none > tg.json
+          python - <<'PY'
+          import json
+          d = json.load(open("tg.json"))
+          rules = {f["rule"] for f in d["findings"]}
+          need = {"WDN-POL-001", "WDN-SECRET-001", "WDN-RDS-001", "WDN-NET-002", "WDN-IAM-004"}
+          missing = need - rules
+          print(d["counts"])
+          assert not missing, f"missed: {missing}"
+          PY
