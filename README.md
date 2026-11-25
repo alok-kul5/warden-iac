@@ -204,10 +204,14 @@ several resources: who trusts whom, who is admin, and which user an ARN points a
 That join is the gap Warden's graph fills.
 
 **Where checkov is ahead.** It has hundreds of AWS checks to Warden's 37. Its 28
-failures on `hardened` are mostly real hardening that Warden doesn't check, such as S3
-access logging, cross-region replication, KMS on everything, and Lambda DLQs and
-tracing. They aren't false positives. Warden is built to go deeper on IAM, not to
-replace a broad scanner. Run both.
+failures on `hardened` ([full list](bench/RESULTS.md#what-checkov-flags-on-the-hardened-stack))
+are mostly monitoring and resilience extras that Warden doesn't check: CloudTrail to
+CloudWatch, RDS Multi-AZ, enhanced monitoring and deletion protection, S3 access
+logging, replication and lifecycle rules, customer-managed KMS keys, and security
+group descriptions. Two are fair hits on the hardened deploy role, which allows
+`ecs:UpdateService` on `*`. One, 90-day password expiry, is advice that current NIST
+guidance and CIS v3 dropped. Warden is built to go deeper on IAM, not to replace a
+broad scanner. Run both.
 
 ### Real-world check: TerraGoat
 
