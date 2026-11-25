@@ -210,7 +210,7 @@ Each rule carries a description, a concrete fix and a CWE ID, all of which flow 
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-pytest -q                     # 22 tests, under 2 seconds
+pytest -q                     # 23 tests, about 2 seconds
 warden scan examples/startup-stack
 ```
 

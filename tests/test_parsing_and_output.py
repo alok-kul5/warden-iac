@@ -115,3 +115,13 @@ resource "aws_lambda_permission" "p" {
 ''', encoding="utf-8")
     hits = {f.resource for f in scan(tmp_path).findings if f.rule.id == "WDN-POL-001"}
     assert hits == {"aws_sqs_queue_policy.q", "aws_lambda_permission.p"}
+
+
+def test_each_directory_is_its_own_module():
+    # hardened/ has a public access block for a bucket also named "uploads";
+    # it must not cover startup-stack's bucket when both are scanned together.
+    together = {(f.rule.id, f.file) for f in scan(EXAMPLES).findings}
+    alone = {(f.rule.id, "startup-stack/" + f.file) for f in scan(EXAMPLES / "startup-stack").findings}
+    assert alone <= together
+    assert len(scan(EXAMPLES).findings) == sum(len(scan(EXAMPLES / d).findings)
+                                               for d in ("startup-stack", "iam-escalation", "hardened"))

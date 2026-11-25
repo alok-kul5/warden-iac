@@ -60,7 +60,7 @@ def sarif(res: Result, base: str = "") -> str:
             "locations": [{"physicalLocation": {
                 "artifactLocation": {"uri": uri(f.file)},
                 "region": {"startLine": f.line}}}],
-            "partialFingerprints": {"resource/v1": f"{f.rule.id}:{f.resource}"},
+            "partialFingerprints": {"resource/v1": f"{f.rule.id}:{f.file}:{f.resource}"},
         }
         if f.path:
             result["codeFlows"] = [{"threadFlows": [{"locations": [
@@ -107,30 +107,35 @@ def markdown(res: Result) -> str:
 
 def mermaid(res: Result) -> str:
     """Escalation paths as a Mermaid flowchart (renders on GitHub)."""
-    g = res.graph
+    from .scanner import module_of
     out = ["flowchart LR"]
-    ids: dict[str, str] = {}
+    ids: dict[tuple[str, str], str] = {}
+    prefix = len(res.graphs) > 1
 
-    def node(key):
-        if key not in ids:
-            ids[key] = f"n{len(ids)}"
-            if key in ("admin", ADMIN):
-                out.append(f'    {ids[key]}(["admin"])')
+    def node(mod, key):
+        k = ("", "admin") if key in ("admin", ADMIN) else (mod, key)
+        if k not in ids:
+            ids[k] = f"n{len(ids)}"
+            if k[1] == "admin":
+                out.append(f'    {ids[k]}(["admin"])')
             else:
-                p = g.principals.get(key)
+                p = res.graphs[mod].principals.get(key)
                 label = f"{p.kind}: {p.name}" if p else key
-                out.append(f'    {ids[key]}["{label}"]')
-        return ids[key]
+                if prefix:
+                    label = f"{mod}/ {label}"
+                out.append(f'    {ids[k]}["{label}"]')
+        return ids[k]
 
     edges = set()
     for f in res.findings:
+        mod = module_of(f.file)
         for s in f.path:
-            a, b = node(s["from"]), node(s["to"])
+            a, b = node(mod, s["from"]), node(mod, s["to"])
             edges.add((a, s["technique"], b))
             if s is f.path[-1] and s["to"] != "admin":
-                edges.add((b, "is admin", node("admin")))
+                edges.add((b, "is admin", node(mod, "admin")))
     for a, t, b in sorted(edges):
         out.append(f"    {a} -- {t} --> {b}")
-    if "admin" in ids:
-        out.append(f"    style {ids['admin']} fill:#b42318,color:#fff,stroke:#b42318")
+    if ("", "admin") in ids:
+        out.append(f"    style {ids[('', 'admin')]} fill:#b42318,color:#fff,stroke:#b42318")
     return "\n".join(out)
